@@ -33,7 +33,7 @@ class XGMMLParserHelper(object):
         """
 
         self._tagstack.append(tag)
-
+        
         if tag == 'graph':
             self._network_att_el = dict()
 
@@ -42,6 +42,8 @@ class XGMMLParserHelper(object):
 
         if tag == 'att' and (self._tagstack[-2] == 'node' or
                              self._tagstack[-2] == 'edge'):
+            
+            
             if 'value' in attr:
                 self._current_att_el = self._parse_att_el(self._current_att_el,
                                                           tag, attr)
@@ -105,10 +107,15 @@ class XGMMLParserHelper(object):
             else:
                 self._graph.add_node(self._current_obj['id'],
                                      **self._current_att_el)
+                
+            self._current_att_el = dict()
+            
         elif tag == 'edge':
             self._graph.add_edge(self._current_obj['source'],
                                  self._current_obj['target'],
                                  **self._current_att_el)
+
+            self._current_att_el = dict()
 
         self._tagstack.pop()
 
@@ -194,17 +201,19 @@ def XGMMLWriter(graph_file, graph, graph_name, directed=True):
             graph_file.write(
                 indentation_string +
                 '<att name="{}" value="{}" type="real" />\n'.format(k, v))
-        elif hasattr(v, '__iter__'):
+        elif hasattr(v, '__iter__') and not isinstance(v, str):
             graph_file.write(
                 indentation_string + '<att name="{}" type="list">\n'.format(k))
             for item in v:
                 write_att_el(k, item, 3)
             graph_file.write(indentation_string + '</att>\n')
         else:
+            if v is None:
+                v = 'None'
+
             graph_file.write(
                 indentation_string +
-                '<att name="{}" value="{}" type="string" />\n'.format(k,
-                                                                    quote(v)))
+                '<att name="{}" value="{}" type="string" />\n'.format(k, quote(v)))
 
     for onenode in graph.nodes(data=True):
         id = onenode[0]
@@ -215,7 +224,6 @@ def XGMMLWriter(graph_file, graph, graph_name, directed=True):
             del attr['label']
         else:
             label = id
-
         graph_file.write(
             '  <node id="{id}" label="{label}">\n'.format(id=id, label=label))
 
@@ -248,7 +256,8 @@ def XGMMLWriter(graph_file, graph, graph_name, directed=True):
             graph_file.write('  <edge source="{}" target="{}">\n'.format(
                 oneedge[0], oneedge[1]))
 
-        for k, v in iter(oneedge[2].items()):
-            write_att_el(k, v, 2)
+            for k, v in iter(oneedge[2].items()):
+                write_att_el(k, v, 2)
         graph_file.write('  </edge>\n')
     graph_file.write('</graph>\n')
+    graph_file.flush()
